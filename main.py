@@ -41,7 +41,11 @@ class AppNomina:
        self.campo_dias         = ft.TextField(label="Días laborados")
        self.btn_guardar        = ft.ElevatedButton("Guardar Registro",  on_click=self._guardar)
        self.btn_calcular       = ft.ElevatedButton("Calcular Nómina",   on_click=self._calcular)
+       self.btn_pdf            = ft.ElevatedButton("Descargar PDF",      on_click=self._guardar_pdf, visible=False)
        self.btn_salir          = ft.ElevatedButton("Salir",             on_click=self._confirmar_salir)
+       self.file_picker        = ft.FilePicker(on_result=self._guardar_pdf_resultado)
+       self.page.overlay.append(self.file_picker)
+       self.lineas_reporte     = []
 
     def _build_UI(self):
      self.page.add(
@@ -91,6 +95,18 @@ class AppNomina:
      valor_dia = GestionEmpleados.CARGOS.get(cargo, 0)
      total     = self.empleado.calcular_pago(cargo, valor_dia)
      fecha     = datetime.now().strftime("%d/%m/%Y")
+     self.lineas_reporte = [
+        "Reporte de Nómina",
+        f"Fecha: {fecha}",
+        f"ID: {self.empleado.identificacion}",
+        f"Nombre: {self.empleado.nombre}",
+        f"Género: {self.empleado.genero}",
+        f"Cargo: {cargo}",
+        f"Días laborados: {self.empleado.dias_laborados}",
+        f"Valor día: ${valor_dia:,}",
+        f"TOTAL A PAGAR: ${total:,}",
+     ]
+     self.btn_pdf.visible = True
 
      self.page.clean()
      self.page.add(ft.Column([
@@ -104,7 +120,26 @@ class AppNomina:
         ft.Text(f"Valor día: ${valor_dia:,}"),
         ft.Divider(),
         ft.Text(f"TOTAL A PAGAR: ${total:,}", size=20, weight="bold", color="green"),
+        self.btn_pdf,
     ], spacing=10))
+     self.page.update()
+
+    def _guardar_pdf(self, e):
+     nombre_sugerido = f"reporte_nomina_{self.empleado.identificacion or 'empleado'}.pdf"
+     self.file_picker.save_file(
+        dialog_title="Guardar reporte en PDF",
+        file_name=nombre_sugerido,
+        allowed_extensions=["pdf"],
+     )
+
+    def _guardar_pdf_resultado(self, e: ft.FilePickerResultEvent):
+     if not e.path:
+        return
+
+     GestionEmpleados.generar_reporte_pdf(e.path, self.lineas_reporte)
+     self.page.snack_bar = ft.SnackBar(ft.Text(f"PDF guardado en: {e.path}"))
+     self.page.snack_bar.open = True
+     self.page.update()
      
     def _confirmar_salir(self, e):
      def cerrar(e):
